@@ -33,7 +33,7 @@ class StartPage extends StatelessWidget {
               const SizedBox(height: 20),
               ElevatedButton(
                 onPressed: () {
-                  Navigator.pushReplacementNamed(context, '/login');
+                  Navigator.pushReplacementNamed(context, '/auth');
                 },
                 child: const Text('GETTING STARTED'),
               ),
