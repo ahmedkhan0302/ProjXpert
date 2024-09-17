@@ -3,20 +3,23 @@ import 'package:flutter/material.dart';
 
 import '../components/my_textfield.dart';
 
-class LoginPage extends StatefulWidget {
+class RegisterPage extends StatefulWidget {
   final void Function() onTap;
-  const LoginPage({super.key, required this.onTap});
+  const RegisterPage({super.key, required this.onTap});
 
   @override
-  State<LoginPage> createState() => _LoginPageState();
+  State<RegisterPage> createState() => _RegisterPageState();
 }
 
-class _LoginPageState extends State<LoginPage> {
+class _RegisterPageState extends State<RegisterPage> {
   final TextEditingController usernameController = TextEditingController();
 
   final TextEditingController passwordController = TextEditingController();
 
-  void signUserIn() async {
+  final TextEditingController confirmPasswordController =
+      TextEditingController();
+
+  void signUserUp() async {
     showDialog(
         context: context,
         builder: (context) => const Center(
@@ -24,14 +27,18 @@ class _LoginPageState extends State<LoginPage> {
             ));
 
     try {
-      await FirebaseAuth.instance.signInWithEmailAndPassword(
-          email: usernameController.text, password: passwordController.text);
+      if (confirmPasswordController.text == passwordController.text) {
+        await FirebaseAuth.instance.createUserWithEmailAndPassword(
+            email: usernameController.text, password: passwordController.text);
+      } else {
+        //Navigator.pop(context);
+        showErrorMessage("Passwords do not match");
+      }
     } on FirebaseAuthException catch (e) {
       Navigator.pop(context);
 
-      showErrorMessage(e.code.toString());
+      showErrorMessage(e.code);
     }
-
     Navigator.pop(context);
   }
 
@@ -40,7 +47,7 @@ class _LoginPageState extends State<LoginPage> {
         context: context,
         builder: (context) {
           return AlertDialog(
-            backgroundColor: Colors.deepPurple,
+            backgroundColor: Colors.indigoAccent,
             title: Center(
               child: Text(
                 message,
@@ -81,43 +88,22 @@ class _LoginPageState extends State<LoginPage> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  //const MyTextField(label: 'Username'),
                   MyTextField(
                       label: 'Email ID', controller: usernameController),
+                  //const MyTextField(label: 'Mobile Number'),
                   MyTextField(
                       label: 'Password',
                       isPassword: true,
                       controller: passwordController),
-                  //const SizedBox(height: 4),
-                  // TextButton(
-                  //   onPressed: () {
-                  //     Navigator.pushNamed(context, '/change_password');
-                  //   },
-                  //   child: Text(
-                  //     'Forgot Password?',
-                  //     style: TextStyle(color: Colors.purple.shade900),
-                  //   ),
-                  // ),
+                  MyTextField(
+                      label: 'Confirm Password',
+                      isPassword: true,
+                      controller: confirmPasswordController),
 
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 0.0),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        TextButton(
-                          onPressed: () {
-                            Navigator.pushNamed(context, '/change_password');
-                          },
-                          child: Text(
-                            'Forgot Password?',
-                            style: TextStyle(color: Colors.purple.shade900),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
+                  const SizedBox(height: 20),
                   ElevatedButton(
-                    onPressed: signUserIn,
+                    onPressed: signUserUp,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.purple.shade700,
                       shape: RoundedRectangleBorder(
@@ -125,17 +111,13 @@ class _LoginPageState extends State<LoginPage> {
                       ),
                       padding: const EdgeInsets.symmetric(vertical: 16),
                     ),
-                    child: const Text('LOGIN',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        )),
+                    child: const Text('REGISTER',
+                        style: TextStyle(fontSize: 16, color: Colors.white)),
                   ),
                   TextButton(
                     onPressed: widget.onTap,
                     child: Text(
-                      'New user? SIGNUP',
+                      'Already have an account? LOGIN',
                       style: TextStyle(color: Colors.purple.shade900),
                     ),
                   ),
