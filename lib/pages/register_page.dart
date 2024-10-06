@@ -1,6 +1,6 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-
 import '../components/my_textfield.dart';
 
 class RegisterPage extends StatefulWidget {
@@ -19,6 +19,10 @@ class _RegisterPageState extends State<RegisterPage> {
   final TextEditingController confirmPasswordController =
       TextEditingController();
 
+  final TextEditingController emailController = TextEditingController();
+
+  final TextEditingController phnoController = TextEditingController();
+
   void signUserUp() async {
     showDialog(
         context: context,
@@ -29,7 +33,14 @@ class _RegisterPageState extends State<RegisterPage> {
     try {
       if (confirmPasswordController.text == passwordController.text) {
         await FirebaseAuth.instance.createUserWithEmailAndPassword(
-            email: usernameController.text, password: passwordController.text);
+            email: emailController.text, password: passwordController.text);
+
+        await addUserDetails(
+          usernameController.text,
+          emailController.text,
+          phnoController.text,
+          FirebaseAuth.instance.currentUser!.uid,
+        );
       } else {
         //Navigator.pop(context);
         showErrorMessage("Passwords do not match");
@@ -40,6 +51,15 @@ class _RegisterPageState extends State<RegisterPage> {
       showErrorMessage(e.code);
     }
     Navigator.pop(context);
+  }
+
+  Future addUserDetails(
+      String username, String email, String phno, String uid) async {
+    await FirebaseFirestore.instance.collection('users').doc(uid).set({
+      'username': username,
+      'email': email,
+      'phno': phno,
+    });
   }
 
   void showErrorMessage(String message) {
@@ -88,10 +108,11 @@ class _RegisterPageState extends State<RegisterPage> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  //const MyTextField(label: 'Username'),
                   MyTextField(
-                      label: 'Email ID', controller: usernameController),
-                  //const MyTextField(label: 'Mobile Number'),
+                      label: 'Username', controller: usernameController),
+                  MyTextField(label: 'Email ID', controller: emailController),
+                  MyTextField(
+                      label: 'Mobile Number', controller: phnoController),
                   MyTextField(
                       label: 'Password',
                       isPassword: true,
@@ -100,7 +121,6 @@ class _RegisterPageState extends State<RegisterPage> {
                       label: 'Confirm Password',
                       isPassword: true,
                       controller: confirmPasswordController),
-
                   const SizedBox(height: 20),
                   ElevatedButton(
                     onPressed: signUserUp,
