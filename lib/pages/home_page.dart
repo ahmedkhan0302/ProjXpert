@@ -72,12 +72,31 @@ class _HomePageState extends State<HomePage> {
       setState(() {
         teamName = teamDoc['teamName'];
         teamCode = teamDoc['teamCode'];
+        teamID = teamId;
       });
     }
   }
 
   Future<void> checkProjectStatus() async {
     String userId = FirebaseAuth.instance.currentUser!.uid;
+
+    QuerySnapshot projectTeamSnapshot = await FirebaseFirestore.instance
+        .collection('teams_projects')
+        .where('teamID', isEqualTo: teamID)
+        .get();
+
+    if (projectTeamSnapshot.docs.isNotEmpty) {
+      String projectId = projectTeamSnapshot.docs.first['projectID'];
+      DocumentSnapshot projSnapshot = await FirebaseFirestore.instance
+          .collection('projects')
+          .doc(projectId)
+          .get();
+      setState(() {
+        projectName = projSnapshot['projectName'];
+        projectID = projectId;
+      });
+      return;
+    }
 
     // Check if the user is a creator of a team
     QuerySnapshot projSnapshot = await FirebaseFirestore.instance
@@ -88,22 +107,12 @@ class _HomePageState extends State<HomePage> {
     if (projSnapshot.docs.isNotEmpty) {
       setState(() {
         projectName = projSnapshot.docs.first['projectName'];
+        projectID = projSnapshot.docs.first.id;
       });
       return;
     }
 
     // Check if the user is in the user_team collection
-    QuerySnapshot projTeamSnapshot = await FirebaseFirestore.instance
-        .collection('teams_projects')
-        .where('teamID', isEqualTo: teamID)
-        .get();
-
-    if (projTeamSnapshot.docs.isNotEmpty) {
-      setState(() {
-        projectName = projTeamSnapshot.docs.first['projectName'];
-        projectID = projTeamSnapshot.docs.first.id;
-      });
-    }
   }
 
   void createTeam() async {
@@ -195,10 +204,33 @@ class _HomePageState extends State<HomePage> {
         'teamId': teamId,
       });
 
-      setState(() {
-        teamName = teamSnapshot.docs.first['teamName'];
-        this.teamCode = teamCode;
-      });
+      QuerySnapshot projsnapshot = await FirebaseFirestore.instance
+          .collection('teams_projects')
+          .where('teamID', isEqualTo: teamId)
+          .get();
+
+      if (projsnapshot.docs.isNotEmpty) {
+        //log(projsnapshot.docs.first['projectID']);
+        String projectId = projsnapshot.docs.first['projectID'];
+        DocumentSnapshot projSnapshot = await FirebaseFirestore.instance
+            .collection('projects')
+            .doc(projectId)
+            .get();
+
+        setState(() {
+          teamName = teamSnapshot.docs.first['teamName'];
+          this.teamCode = teamCode;
+          teamID = teamId;
+          projectID = projectId;
+          projectName = projSnapshot['projectName'];
+        });
+      } else {
+        setState(() {
+          teamName = teamSnapshot.docs.first['teamName'];
+          this.teamCode = teamCode;
+          teamID = teamId;
+        });
+      }
 
       if (mounted) {
         Navigator.of(context).pop(); // Close the dialog
@@ -244,6 +276,24 @@ class _HomePageState extends State<HomePage> {
           .delete();
     }
 
+    // make project name and id null as well if the project belongs to the team and he is not the creator
+    QuerySnapshot projTeamSnapshot = await FirebaseFirestore.instance
+        .collection('teams_projects')
+        .where('teamID', isEqualTo: teamID)
+        .get();
+
+    if (projTeamSnapshot.docs.isNotEmpty) {
+      DocumentSnapshot projDoc = await FirebaseFirestore.instance
+          .collection('projects')
+          .doc(projTeamSnapshot.docs.first['projectID'])
+          .get();
+      if (projDoc['ownerId'] != userId) {
+        setState(() {
+          projectName = null;
+          projectID = null;
+        });
+      }
+    }
     setState(() {
       teamName = null;
       teamCode = null;
@@ -252,9 +302,6 @@ class _HomePageState extends State<HomePage> {
   }
 
   void deleteProject() async {
-    // setState(() {
-    //   projectName = null;
-    // });
     if (projectID == null) {
       showErrorMessage("No project selected");
       return;
@@ -283,10 +330,6 @@ class _HomePageState extends State<HomePage> {
       projectName = null;
       projectID = null;
     });
-
-    if (mounted) {
-      Navigator.of(context).pop(); // Close the dialog
-    }
   }
 
   @override
