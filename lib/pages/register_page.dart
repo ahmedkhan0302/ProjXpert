@@ -43,14 +43,19 @@ class _RegisterPageState extends State<RegisterPage> {
         );
       } else {
         //Navigator.pop(context);
-        showErrorMessage("Passwords do not match");
+        if (mounted) {
+          showErrorMessage("Passwords do not match");
+        }
       }
     } on FirebaseAuthException catch (e) {
-      Navigator.pop(context);
-
-      showErrorMessage(e.code);
+      if (mounted) {
+        Navigator.pop(context);
+        showErrorMessage(e.code);
+      }
     }
-    Navigator.pop(context);
+    if (mounted) {
+      Navigator.pop(context);
+    }
   }
 
   Future addUserDetails(
