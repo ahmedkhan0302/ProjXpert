@@ -1,0 +1,72 @@
+ @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Home Page'),
+      ),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            if (teamName != null && teamCode != null) ...[
+              Text('Team Name: $teamName'),
+              Text('Team Code: $teamCode'),
+            ] else ...[
+              const Text('Team'),
+              const SizedBox(height: 8.0),
+              ElevatedButton(
+                onPressed: () {
+                  showDialog(
+                    context: context,
+                    builder: (context) {
+                      return AlertDialog(
+                        title: const Text('Create Team'),
+                        content: TextField(
+                          controller: teamNameController,
+                          decoration: const InputDecoration(
+                              hintText: 'Enter team name'),
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: createTeam,
+                            child: const Text('Create'),
+                          ),
+                        ],
+                      );
+                    },
+                  );
+                },
+                child: const Text('Create'),
+              ),
+              const SizedBox(height: 8.0),
+              ElevatedButton(
+                onPressed: () {
+                  showDialog(
+                    context: context,
+                    builder: (context) {
+                      return AlertDialog(
+                        title: const Text('Join Team'),
+                        content: TextField(
+                          controller: teamCodeController,
+                          decoration: const InputDecoration(
+                              hintText: 'Enter team code'),
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: joinTeam,
+                            child: const Text('Join'),
+                          ),
+                        ],
+                      );
+                    },
+                  );
+                },
+                child: const Text('Join'),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
