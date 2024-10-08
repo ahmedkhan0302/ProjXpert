@@ -1,8 +1,12 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:projxpert/services/firestore.dart';
 
 class ProjectDetailsApp extends StatefulWidget {
   final String? projectID;
   const ProjectDetailsApp({super.key, required this.projectID});
+
+  String? getprojID() => projectID;
 
   @override
   State<ProjectDetailsApp> createState() => _ProjectDetailsAppState();
@@ -33,31 +37,47 @@ class _ProjectDetailsAppState extends State<ProjectDetailsApp> {
             decoration: BoxDecoration(
               color: Colors.deepPurple[100],
             ),
-            child: const Column(
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Center(
-                  child: Text(
-                    'Project Title',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.deepPurple,
-                    ),
-                  ),
+                FutureBuilder<DocumentSnapshot>(
+                  future: Firestoreservice().getProjectById(widget.projectID!),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator());
+                    } else if (snapshot.hasError) {
+                      return const Center(
+                          child: Text('Error loading project data'));
+                    } else if (!snapshot.hasData || !snapshot.data!.exists) {
+                      return const Center(child: Text('Project not found'));
+                    } else {
+                      var data = snapshot.data!.data() as Map<String, dynamic>;
+                      return Center(
+                        child: Text(
+                          data['projectName'],
+                          style: const TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.deepPurple,
+                          ),
+                        ),
+                      );
+                    }
+                  },
                 ),
-                SizedBox(height: 30),
+                const SizedBox(height: 30),
                 // Add the Project Synopsis Widget here
-                ProjectSynopsisWidget(),
-                SizedBox(height: 30),
-                TechToolsWidget(),
-                SizedBox(height: 30),
-                DocumentDropdown(),
-                SizedBox(height: 30),
-                ProjectScheduleWidget(),
-                SizedBox(height: 20),
-                ProjectStatusWidget(status: 'In Progress'), // Example of usage
-                SizedBox(height: 20),
+                const ProjectSynopsisWidget(),
+                const SizedBox(height: 30),
+                const TechToolsWidget(),
+                const SizedBox(height: 30),
+                const DocumentDropdown(),
+                const SizedBox(height: 30),
+                ProjectScheduleWidget(projectID: widget.projectID!),
+                const SizedBox(height: 20),
+                const ProjectStatusWidget(
+                    status: 'In Progress'), // Example of usage
+                const SizedBox(height: 20),
               ],
             ),
           ),
@@ -308,25 +328,40 @@ class ProjectStatusWidget extends StatelessWidget {
 }
 
 class ProjectScheduleWidget extends StatefulWidget {
-  const ProjectScheduleWidget({super.key});
+  final String? projectID;
+  const ProjectScheduleWidget({super.key, required this.projectID});
 
   @override
   _ProjectScheduleWidgetState createState() => _ProjectScheduleWidgetState();
 }
 
 class _ProjectScheduleWidgetState extends State<ProjectScheduleWidget> {
-  List<Map<String, String>> phases = [
-    {
-      "phase": "Requirement Phase",
-      "start": "2024-10-01",
-      "end": "2024-10-15",
-    },
-    {
-      "phase": "Design Phase",
-      "start": "2024-10-16",
-      "end": "2024-10-31",
-    },
-  ];
+  List<Map<String, dynamic>> phases = [];
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.projectID != null) {
+      Firestoreservice()
+          .getScheduleStream(widget.projectID!)
+          .listen((snapshot) {
+        setState(() {
+          phases = snapshot.docs.map((doc) {
+            var data = doc.data() as Map<String, dynamic>;
+            return {
+              "phase": data['phaseName'] ?? 'Unknown Phase',
+              "start": data['startDate'] != null
+                  ? data['startDate'].toDate().toString()
+                  : 'No Start Date',
+              "end": data['endDate'] != null
+                  ? data['endDate'].toDate().toString()
+                  : 'No End Date',
+            };
+          }).toList();
+        });
+      });
+    }
+  }
 
   final TextEditingController phaseController = TextEditingController();
   final TextEditingController startDateController = TextEditingController();
@@ -334,6 +369,20 @@ class _ProjectScheduleWidgetState extends State<ProjectScheduleWidget> {
 
   // Method to add a new schedule phase
   void _addNewPhase() {
+    Firestoreservice().addSchedule(
+      widget.projectID!,
+      phaseController.text,
+      DateTime.parse(startDateController.text),
+      DateTime.parse(endDateController.text),
+    );
+
+    Firestoreservice().addCurrentProjectSchedule(
+      widget.projectID!,
+      phaseController.text,
+      DateTime.parse(startDateController.text),
+      DateTime.parse(endDateController.text),
+    );
+
     setState(() {
       phases.add({
         "phase": phaseController.text,

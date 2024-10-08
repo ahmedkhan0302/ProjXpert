@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:projxpert/pages/project_details_app.dart';
 import 'package:projxpert/services/firestore.dart';
 
 class InspirePage extends StatefulWidget {
@@ -46,6 +47,14 @@ class _InspirePageState extends State<InspirePage> {
     });
   }
 
+  void navigateToProjectDetails(projectID) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => ProjectDetailsApp(projectID: projectID),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -89,8 +98,11 @@ class _InspirePageState extends State<InspirePage> {
                                 doc.data() as Map<String, dynamic>;
                             String pName = data['projectName'];
 
-                            return ProjectTile(
-                              projectName: pName,
+                            return GestureDetector(
+                              onTap: () => navigateToProjectDetails(doc.id),
+                              child: ProjectTile(
+                                projectName: pName,
+                              ),
                             );
                           });
                     } else {
