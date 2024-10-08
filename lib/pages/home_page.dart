@@ -42,19 +42,19 @@ class _HomePageState extends State<HomePage> {
     String userId = FirebaseAuth.instance.currentUser!.uid;
 
     // Check if the user is a creator of a team
-    QuerySnapshot teamSnapshot = await FirebaseFirestore.instance
-        .collection('teams')
-        .where('creatorId', isEqualTo: userId)
-        .get();
+    // QuerySnapshot teamSnapshot = await FirebaseFirestore.instance
+    //     .collection('teams')
+    //     .where('creatorId', isEqualTo: userId)
+    //     .get();
 
-    if (teamSnapshot.docs.isNotEmpty) {
-      setState(() {
-        teamName = teamSnapshot.docs.first['teamName'];
-        teamCode = teamSnapshot.docs.first['teamCode'];
-        teamID = teamSnapshot.docs.first.id;
-      });
-      return;
-    }
+    // if (teamSnapshot.docs.isNotEmpty) {
+    //   setState(() {
+    //     teamName = teamSnapshot.docs.first['teamName'];
+    //     teamCode = teamSnapshot.docs.first['teamCode'];
+    //     teamID = teamSnapshot.docs.first.id;
+    //   });
+    //   return;
+    // }
 
     // Check if the user is in the user_team collection
     QuerySnapshot userTeamSnapshot = await FirebaseFirestore.instance
@@ -80,27 +80,31 @@ class _HomePageState extends State<HomePage> {
   Future<void> checkProjectStatus() async {
     String userId = FirebaseAuth.instance.currentUser!.uid;
 
-    QuerySnapshot projectTeamSnapshot = await FirebaseFirestore.instance
-        .collection('teams_projects')
-        .where('teamID', isEqualTo: teamID)
-        .get();
-
-    if (projectTeamSnapshot.docs.isNotEmpty) {
-      String projectId = projectTeamSnapshot.docs.first['projectID'];
-      DocumentSnapshot projSnapshot = await FirebaseFirestore.instance
-          .collection('projects')
-          .doc(projectId)
+    if (teamID != null) {
+      QuerySnapshot projectTeamSnapshot = await FirebaseFirestore.instance
+          .collection('teams_projects')
+          .where('teamID', isEqualTo: teamID)
           .get();
-      setState(() {
-        projectName = projSnapshot['projectName'];
-        projectID = projectId;
-      });
-      return;
+
+      if (projectTeamSnapshot.docs.isNotEmpty) {
+        //display a message on console
+        log(projectTeamSnapshot.docs.first['projectID']);
+        String projectId = projectTeamSnapshot.docs.first['projectID'];
+        DocumentSnapshot projSnapshot = await FirebaseFirestore.instance
+            .collection('projects')
+            .doc(projectId)
+            .get();
+        setState(() {
+          projectName = projSnapshot['projectName'];
+          projectID = projectId;
+        });
+        return;
+      }
     }
 
     // Check if the user is a creator of a team
     QuerySnapshot projSnapshot = await FirebaseFirestore.instance
-        .collection('projects')
+        .collection('current_projects')
         .where('ownerId', isEqualTo: userId)
         .get();
 
@@ -135,6 +139,7 @@ class _HomePageState extends State<HomePage> {
     setState(() {
       this.teamName = teamName;
       this.teamCode = teamCode;
+      teamID = teamRef.id;
     });
 
     if (mounted) {
@@ -165,6 +170,14 @@ class _HomePageState extends State<HomePage> {
 
     DocumentReference projectRef =
         await FirebaseFirestore.instance.collection('projects').add({
+      'projectName': projectName,
+      'ownerId': userId,
+    });
+
+    await FirebaseFirestore.instance
+        .collection('current_projects')
+        .doc(projectRef.id)
+        .set({
       'projectName': projectName,
       'ownerId': userId,
     });
@@ -285,13 +298,15 @@ class _HomePageState extends State<HomePage> {
     if (projTeamSnapshot.docs.isNotEmpty) {
       DocumentSnapshot projDoc = await FirebaseFirestore.instance
           .collection('projects')
-          .doc(projTeamSnapshot.docs.first['projectID'])
+          .doc(projTeamSnapshot.docs.first.id)
           .get();
-      if (projDoc['ownerId'] != userId) {
-        setState(() {
-          projectName = null;
-          projectID = null;
-        });
+      if (projDoc.exists) {
+        if (projDoc["ownerID"] != userId) {
+          setState(() {
+            projectName = null;
+            projectID = null;
+          });
+        }
       }
     }
     setState(() {
@@ -309,7 +324,7 @@ class _HomePageState extends State<HomePage> {
 
     // Delete the project from the projects collection
     await FirebaseFirestore.instance
-        .collection('projects')
+        .collection('current_projects')
         .doc(projectID)
         .delete();
 
@@ -433,7 +448,7 @@ class _HomePageState extends State<HomePage> {
                         const SizedBox(height: 8.0),
                         ElevatedButton(
                           onPressed: deleteProject,
-                          child: const Text('Delete Project'),
+                          child: const Text('End Project'),
                         ),
                       ] else ...[
                         const Text('Project'),
