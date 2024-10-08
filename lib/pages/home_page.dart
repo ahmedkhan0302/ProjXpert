@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:projxpert/pages/project_details_app.dart';
 
 String generateRandomCode() {
   const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -41,21 +42,6 @@ class _HomePageState extends State<HomePage> {
   Future<void> checkUserTeamStatus() async {
     String userId = FirebaseAuth.instance.currentUser!.uid;
 
-    // Check if the user is a creator of a team
-    // QuerySnapshot teamSnapshot = await FirebaseFirestore.instance
-    //     .collection('teams')
-    //     .where('creatorId', isEqualTo: userId)
-    //     .get();
-
-    // if (teamSnapshot.docs.isNotEmpty) {
-    //   setState(() {
-    //     teamName = teamSnapshot.docs.first['teamName'];
-    //     teamCode = teamSnapshot.docs.first['teamCode'];
-    //     teamID = teamSnapshot.docs.first.id;
-    //   });
-    //   return;
-    // }
-
     // Check if the user is in the user_team collection
     QuerySnapshot userTeamSnapshot = await FirebaseFirestore.instance
         .collection('user_teams')
@@ -87,8 +73,6 @@ class _HomePageState extends State<HomePage> {
           .get();
 
       if (projectTeamSnapshot.docs.isNotEmpty) {
-        //display a message on console
-        log(projectTeamSnapshot.docs.first['projectID']);
         String projectId = projectTeamSnapshot.docs.first['projectID'];
         DocumentSnapshot projSnapshot = await FirebaseFirestore.instance
             .collection('projects')
@@ -115,8 +99,6 @@ class _HomePageState extends State<HomePage> {
       });
       return;
     }
-
-    // Check if the user is in the user_team collection
   }
 
   void createTeam() async {
@@ -223,7 +205,6 @@ class _HomePageState extends State<HomePage> {
           .get();
 
       if (projsnapshot.docs.isNotEmpty) {
-        //log(projsnapshot.docs.first['projectID']);
         String projectId = projsnapshot.docs.first['projectID'];
         DocumentSnapshot projSnapshot = await FirebaseFirestore.instance
             .collection('projects')
@@ -347,6 +328,14 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
+  void navigateToProjectDetails() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => ProjectDetailsApp(projectID: projectID),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -435,50 +424,54 @@ class _HomePageState extends State<HomePage> {
                     ),
                   ),
                   const SizedBox(height: 16.0),
-                  Container(
-                    width: containerWidth,
-                    padding: const EdgeInsets.all(16.0),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.black),
-                      borderRadius: BorderRadius.circular(8.0),
-                    ),
-                    child: Column(children: [
-                      if (projectName != null) ...[
-                        Text('Project Name: $projectName'),
-                        const SizedBox(height: 8.0),
-                        ElevatedButton(
-                          onPressed: deleteProject,
-                          child: const Text('End Project'),
-                        ),
-                      ] else ...[
-                        const Text('Project'),
-                        const SizedBox(height: 8.0),
-                        ElevatedButton(
-                          onPressed: () {
-                            showDialog(
-                              context: context,
-                              builder: (context) {
-                                return AlertDialog(
-                                  title: const Text('Create Project'),
-                                  content: TextField(
-                                    controller: projectNameController,
-                                    decoration: const InputDecoration(
-                                        hintText: 'Enter project name'),
-                                  ),
-                                  actions: [
-                                    TextButton(
-                                      onPressed: createProject,
-                                      child: const Text('Create'),
+                  GestureDetector(
+                    onTap:
+                        projectName != null ? navigateToProjectDetails : null,
+                    child: Container(
+                      width: containerWidth,
+                      padding: const EdgeInsets.all(16.0),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.black),
+                        borderRadius: BorderRadius.circular(8.0),
+                      ),
+                      child: Column(children: [
+                        if (projectName != null) ...[
+                          Text('Project Name: $projectName'),
+                          const SizedBox(height: 8.0),
+                          ElevatedButton(
+                            onPressed: deleteProject,
+                            child: const Text('End Project'),
+                          ),
+                        ] else ...[
+                          const Text('Project'),
+                          const SizedBox(height: 8.0),
+                          ElevatedButton(
+                            onPressed: () {
+                              showDialog(
+                                context: context,
+                                builder: (context) {
+                                  return AlertDialog(
+                                    title: const Text('Create Project'),
+                                    content: TextField(
+                                      controller: projectNameController,
+                                      decoration: const InputDecoration(
+                                          hintText: 'Enter project name'),
                                     ),
-                                  ],
-                                );
-                              },
-                            );
-                          },
-                          child: const Text('Add Project'),
-                        ),
-                      ],
-                    ]),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: createProject,
+                                        child: const Text('Create'),
+                                      ),
+                                    ],
+                                  );
+                                },
+                              );
+                            },
+                            child: const Text('Add Project'),
+                          ),
+                        ],
+                      ]),
+                    ),
                   ),
                 ],
               ),
