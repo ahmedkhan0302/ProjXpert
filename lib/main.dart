@@ -35,7 +35,7 @@ class MyApp extends StatelessWidget {
         '/task': (context) => const TasksPage(),
         '/calendar': (context) => const CalendarPage(),
         '/inspire': (context) => const InspirePage(),
-        '/change_password': (context) => ChangePasswordPage(),
+        '/change_password': (context) => const ChangePasswordPage(),
       },
     );
   }

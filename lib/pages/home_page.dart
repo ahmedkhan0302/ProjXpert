@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:projxpert/pages/project_details_app.dart';
+import 'package:projxpert/services/firestore.dart';
 
 String generateRandomCode() {
   const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -31,6 +32,7 @@ class _HomePageState extends State<HomePage> {
   String? projectName;
   String? teamID;
   String? projectID;
+  bool isLoading = true;
 
   @override
   void initState() {
@@ -64,8 +66,8 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> checkProjectStatus() async {
+    await checkUserTeamStatus();
     String userId = FirebaseAuth.instance.currentUser!.uid;
-
     if (teamID != null) {
       QuerySnapshot projectTeamSnapshot = await FirebaseFirestore.instance
           .collection('teams_projects')
@@ -73,32 +75,56 @@ class _HomePageState extends State<HomePage> {
           .get();
 
       if (projectTeamSnapshot.docs.isNotEmpty) {
-        String projectId = projectTeamSnapshot.docs.first['projectID'];
-        DocumentSnapshot projSnapshot = await FirebaseFirestore.instance
-            .collection('projects')
-            .doc(projectId)
-            .get();
-        setState(() {
-          projectName = projSnapshot['projectName'];
-          projectID = projectId;
-        });
-        return;
+        Firestoreservice firestoreService = Firestoreservice();
+        for (var doc in projectTeamSnapshot.docs) {
+          String projectId = doc['projectID'];
+          bool isCompleted =
+              await firestoreService.isProjectCompleted(projectId);
+          if (!isCompleted) {
+            DocumentSnapshot projSnapshot = await FirebaseFirestore.instance
+                .collection('projects')
+                .doc(projectId)
+                .get();
+            if (projSnapshot.exists) {
+              setState(() {
+                projectName = projSnapshot['projectName'];
+                projectID = projectId;
+              });
+            }
+            setState(() {
+              isLoading = false; // Stop loading
+            });
+            return;
+          }
+        }
       }
     }
 
     // Check if the user is a creator of a team
     QuerySnapshot projSnapshot = await FirebaseFirestore.instance
-        .collection('current_projects')
+        .collection('projects')
         .where('ownerId', isEqualTo: userId)
         .get();
 
     if (projSnapshot.docs.isNotEmpty) {
-      setState(() {
-        projectName = projSnapshot.docs.first['projectName'];
-        projectID = projSnapshot.docs.first.id;
-      });
-      return;
+      Firestoreservice firestoreService = Firestoreservice();
+      for (var doc in projSnapshot.docs) {
+        String projectId = doc.id;
+        bool isCompleted = await firestoreService.isProjectCompleted(projectId);
+        if (!isCompleted) {
+          setState(() {
+            projectName = doc['projectName'];
+            projectID = projectId;
+          });
+
+          break; // Exit the loop once an incomplete project is found
+        }
+      }
     }
+
+    setState(() {
+      isLoading = false; // Stop loading
+    });
   }
 
   void createTeam() async {
@@ -142,7 +168,10 @@ class _HomePageState extends State<HomePage> {
 
       // Allow project creation only if the user is the creator of the team
       if (teamDoc['creatorId'] != userId) {
-        showErrorMessage("Only the team creator can create a project.");
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('Only Team creator can create a project.')),
+        );
         setState(() {
           projectName = null;
         });
@@ -154,15 +183,18 @@ class _HomePageState extends State<HomePage> {
         await FirebaseFirestore.instance.collection('projects').add({
       'projectName': projectName,
       'ownerId': userId,
+      'isCompleted': false,
+      'synopsis': 'Synopsis of the $projectName',
+      'createdAt': FieldValue.serverTimestamp(),
     });
 
-    await FirebaseFirestore.instance
-        .collection('current_projects')
-        .doc(projectRef.id)
-        .set({
-      'projectName': projectName,
-      'ownerId': userId,
-    });
+    // await FirebaseFirestore.instance
+    //     .collection('current_projects')
+    //     .doc(projectRef.id)
+    //     .set({
+    //   'projectName': projectName,
+    //   'ownerId': userId,
+    // });
 
     // If the user is in a team, add the project to the team's projects
     if (teamID != null) {
@@ -205,19 +237,27 @@ class _HomePageState extends State<HomePage> {
           .get();
 
       if (projsnapshot.docs.isNotEmpty) {
-        String projectId = projsnapshot.docs.first['projectID'];
-        DocumentSnapshot projSnapshot = await FirebaseFirestore.instance
-            .collection('projects')
-            .doc(projectId)
-            .get();
+        Firestoreservice firestoreService = Firestoreservice();
+        for (var doc in projsnapshot.docs) {
+          String projectId = doc['projectID'];
+          bool isCompleted =
+              await firestoreService.isProjectCompleted(projectId);
+          if (!isCompleted) {
+            DocumentSnapshot projSnapshot = await FirebaseFirestore.instance
+                .collection('projects')
+                .doc(projectId)
+                .get();
 
-        setState(() {
-          teamName = teamSnapshot.docs.first['teamName'];
-          this.teamCode = teamCode;
-          teamID = teamId;
-          projectID = projectId;
-          projectName = projSnapshot['projectName'];
-        });
+            setState(() {
+              teamName = teamSnapshot.docs.first['teamName'];
+              this.teamCode = teamCode;
+              teamID = teamId;
+              projectID = projectId;
+              projectName = projSnapshot['projectName'];
+            });
+            break; // Exit the loop once an incomplete project is found
+          }
+        }
       } else {
         setState(() {
           teamName = teamSnapshot.docs.first['teamName'];
@@ -298,29 +338,31 @@ class _HomePageState extends State<HomePage> {
   }
 
   void deleteProject() async {
+    String userId = FirebaseAuth.instance.currentUser!.uid;
     if (projectID == null) {
       showErrorMessage("No project selected");
       return;
     }
+    if (teamID != null) {
+      DocumentSnapshot teamDoc = await FirebaseFirestore.instance
+          .collection('teams')
+          .doc(teamID)
+          .get();
 
-    // Delete the project from the projects collection
-    await FirebaseFirestore.instance
-        .collection('current_projects')
-        .doc(projectID)
-        .delete();
-
-    // Delete the project from the teams_projects collection
-    QuerySnapshot teamProjSnapshot = await FirebaseFirestore.instance
-        .collection('teams_projects')
-        .where('projectID', isEqualTo: projectID)
-        .get();
-
-    for (var doc in teamProjSnapshot.docs) {
-      await FirebaseFirestore.instance
-          .collection('teams_projects')
-          .doc(doc.id)
-          .delete();
+      // Allow project creation only if the user is the creator of the team
+      if (teamDoc['creatorId'] != userId) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('Only Team creator can delete a project.')),
+        );
+        return;
+      }
     }
+    // Delete the project from the teams_projects collection
+    await FirebaseFirestore.instance
+        .collection('projects')
+        .doc(projectID)
+        .update({'isCompleted': true});
 
     setState(() {
       projectName = null;
@@ -339,146 +381,149 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Padding(
-        padding: const EdgeInsets.only(top: 32.0),
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final containerWidth = constraints.maxWidth * 0.9;
-            return Align(
-              alignment: Alignment.topCenter,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: containerWidth,
-                    padding: const EdgeInsets.all(16.0),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.black),
-                      borderRadius: BorderRadius.circular(8.0),
-                    ),
+      body: isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : Padding(
+              padding: const EdgeInsets.only(top: 32.0),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final containerWidth = constraints.maxWidth * 0.9;
+                  return Align(
+                    alignment: Alignment.topCenter,
                     child: Column(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        if (teamName != null && teamCode != null) ...[
-                          Text('Team Name: $teamName'),
-                          const SizedBox(height: 8.0),
-                          Text('Team Code: $teamCode'),
-                          const SizedBox(height: 8.0),
-                          ElevatedButton(
-                            onPressed: leaveTeam,
-                            child: const Text('Leave Team'),
+                        Container(
+                          width: containerWidth,
+                          padding: const EdgeInsets.all(16.0),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.black),
+                            borderRadius: BorderRadius.circular(8.0),
                           ),
-                        ] else ...[
-                          const Text('Team'),
-                          const SizedBox(height: 8.0),
-                          ElevatedButton(
-                            onPressed: () {
-                              showDialog(
-                                context: context,
-                                builder: (context) {
-                                  return AlertDialog(
-                                    title: const Text('Create Team'),
-                                    content: TextField(
-                                      controller: teamNameController,
-                                      decoration: const InputDecoration(
-                                          hintText: 'Enter team name'),
-                                    ),
-                                    actions: [
-                                      TextButton(
-                                        onPressed: createTeam,
-                                        child: const Text('Create'),
-                                      ),
-                                    ],
-                                  );
-                                },
-                              );
-                            },
-                            child: const Text('Create'),
+                          child: Column(
+                            children: [
+                              if (teamName != null && teamCode != null) ...[
+                                Text('Team Name: $teamName'),
+                                const SizedBox(height: 8.0),
+                                Text('Team Code: $teamCode'),
+                                const SizedBox(height: 8.0),
+                                ElevatedButton(
+                                  onPressed: leaveTeam,
+                                  child: const Text('Leave Team'),
+                                ),
+                              ] else ...[
+                                const Text('Team'),
+                                const SizedBox(height: 8.0),
+                                ElevatedButton(
+                                  onPressed: () {
+                                    showDialog(
+                                      context: context,
+                                      builder: (context) {
+                                        return AlertDialog(
+                                          title: const Text('Create Team'),
+                                          content: TextField(
+                                            controller: teamNameController,
+                                            decoration: const InputDecoration(
+                                                hintText: 'Enter team name'),
+                                          ),
+                                          actions: [
+                                            TextButton(
+                                              onPressed: createTeam,
+                                              child: const Text('Create'),
+                                            ),
+                                          ],
+                                        );
+                                      },
+                                    );
+                                  },
+                                  child: const Text('Create'),
+                                ),
+                                const SizedBox(height: 8.0),
+                                ElevatedButton(
+                                  onPressed: () {
+                                    showDialog(
+                                      context: context,
+                                      builder: (context) {
+                                        return AlertDialog(
+                                          title: const Text('Join Team'),
+                                          content: TextField(
+                                            controller: teamCodeController,
+                                            decoration: const InputDecoration(
+                                                hintText: 'Enter team code'),
+                                          ),
+                                          actions: [
+                                            TextButton(
+                                              onPressed: joinTeam,
+                                              child: const Text('Join'),
+                                            ),
+                                          ],
+                                        );
+                                      },
+                                    );
+                                  },
+                                  child: const Text('Join'),
+                                ),
+                              ],
+                            ],
                           ),
-                          const SizedBox(height: 8.0),
-                          ElevatedButton(
-                            onPressed: () {
-                              showDialog(
-                                context: context,
-                                builder: (context) {
-                                  return AlertDialog(
-                                    title: const Text('Join Team'),
-                                    content: TextField(
-                                      controller: teamCodeController,
-                                      decoration: const InputDecoration(
-                                          hintText: 'Enter team code'),
-                                    ),
-                                    actions: [
-                                      TextButton(
-                                        onPressed: joinTeam,
-                                        child: const Text('Join'),
-                                      ),
-                                    ],
-                                  );
-                                },
-                              );
-                            },
-                            child: const Text('Join'),
+                        ),
+                        const SizedBox(height: 16.0),
+                        GestureDetector(
+                          onTap: projectName != null
+                              ? navigateToProjectDetails
+                              : null,
+                          child: Container(
+                            width: containerWidth,
+                            padding: const EdgeInsets.all(16.0),
+                            decoration: BoxDecoration(
+                              border: Border.all(color: Colors.black),
+                              borderRadius: BorderRadius.circular(8.0),
+                            ),
+                            child: Column(children: [
+                              if (projectName != null) ...[
+                                Text('Project Name: $projectName'),
+                                const SizedBox(height: 8.0),
+                                ElevatedButton(
+                                  onPressed: deleteProject,
+                                  child: const Text('End Project'),
+                                ),
+                              ] else ...[
+                                const Text('Project'),
+                                const SizedBox(height: 8.0),
+                                ElevatedButton(
+                                  onPressed: () {
+                                    showDialog(
+                                      context: context,
+                                      builder: (context) {
+                                        return AlertDialog(
+                                          title: const Text('Create Project'),
+                                          content: TextField(
+                                            controller: projectNameController,
+                                            decoration: const InputDecoration(
+                                                hintText: 'Enter project name'),
+                                          ),
+                                          actions: [
+                                            TextButton(
+                                              onPressed: createProject,
+                                              child: const Text('Create'),
+                                            ),
+                                          ],
+                                        );
+                                      },
+                                    );
+                                  },
+                                  child: const Text('Add Project'),
+                                ),
+                              ],
+                            ]),
                           ),
-                        ],
+                        ),
                       ],
                     ),
-                  ),
-                  const SizedBox(height: 16.0),
-                  GestureDetector(
-                    onTap:
-                        projectName != null ? navigateToProjectDetails : null,
-                    child: Container(
-                      width: containerWidth,
-                      padding: const EdgeInsets.all(16.0),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.black),
-                        borderRadius: BorderRadius.circular(8.0),
-                      ),
-                      child: Column(children: [
-                        if (projectName != null) ...[
-                          Text('Project Name: $projectName'),
-                          const SizedBox(height: 8.0),
-                          ElevatedButton(
-                            onPressed: deleteProject,
-                            child: const Text('End Project'),
-                          ),
-                        ] else ...[
-                          const Text('Project'),
-                          const SizedBox(height: 8.0),
-                          ElevatedButton(
-                            onPressed: () {
-                              showDialog(
-                                context: context,
-                                builder: (context) {
-                                  return AlertDialog(
-                                    title: const Text('Create Project'),
-                                    content: TextField(
-                                      controller: projectNameController,
-                                      decoration: const InputDecoration(
-                                          hintText: 'Enter project name'),
-                                    ),
-                                    actions: [
-                                      TextButton(
-                                        onPressed: createProject,
-                                        child: const Text('Create'),
-                                      ),
-                                    ],
-                                  );
-                                },
-                              );
-                            },
-                            child: const Text('Add Project'),
-                          ),
-                        ],
-                      ]),
-                    ),
-                  ),
-                ],
+                  );
+                },
               ),
-            );
-          },
-        ),
-      ),
+            ),
     );
   }
 }

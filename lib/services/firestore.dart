@@ -27,6 +27,7 @@ class Firestoreservice {
       'task': task,
       'done': false,
       'createdAt': FieldValue.serverTimestamp(),
+      'deadline': null,
     });
   }
 
@@ -58,7 +59,65 @@ class Firestoreservice {
     });
   }
 
+  Future<void> addProjectDocs(String projectId, String docName, String docUrl) {
+    return currentprojects.doc(projectId).collection('documents').add({
+      'docName': docName,
+      'docUrl': docUrl,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+  }
+
   Stream<QuerySnapshot> getScheduleStream(String? projectId) {
     return projx.doc(projectId).collection('schedules').snapshots();
+  }
+
+  Stream<QuerySnapshot> getDocStream(String? projectId) {
+    return projx.doc(projectId).collection('documents').snapshots();
+  }
+
+  Future<void> addTechTool(String projectId, String tool) {
+    return projx.doc(projectId).update({
+      'Tech_tools': FieldValue.arrayUnion([tool]),
+    });
+  }
+
+  Future<List<String>> getTechTools(String projectId) async {
+    DocumentSnapshot docSnapshot = await projx.doc(projectId).get();
+    List<dynamic> techTools = docSnapshot['Tech_tools'] ?? [];
+    return List<String>.from(techTools);
+  }
+
+  Future<void> updateProjectCompletionStatus(
+      String projectId, bool isCompleted) {
+    return projx.doc(projectId).update({
+      'isCompleted': isCompleted,
+    });
+  }
+
+  Future<bool> isProjectCompleted(String projectId) async {
+    DocumentSnapshot docSnapshot = await projx.doc(projectId).get();
+    return docSnapshot['isCompleted'] ?? false;
+  }
+
+  getProjectOwner(String projectId) async {
+    DocumentSnapshot docSnapshot = await projx.doc(projectId).get();
+    return docSnapshot['ownerId'];
+  }
+
+  Future<void> editProjectSynopsis(String projectId, String synopsis) {
+    return projx.doc(projectId).update({
+      'synopsis': synopsis,
+    });
+  }
+
+  Future<String> getProjectSynopsis(String projectId) async {
+    DocumentSnapshot docSnapshot = await projx.doc(projectId).get();
+    return docSnapshot['synopsis'] ?? '';
+  }
+
+  Future<void> updateTaskStatus(String userid, String docID, bool isCompleted) {
+    return tasks(userid).doc(docID).update({
+      'done': isCompleted,
+    });
   }
 }

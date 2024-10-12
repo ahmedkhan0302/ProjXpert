@@ -59,8 +59,8 @@ class _InspirePageState extends State<InspirePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Inspire Page'),
-      ),
+          // title: const Text('Inspire'),
+          ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
