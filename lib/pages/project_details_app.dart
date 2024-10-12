@@ -366,7 +366,7 @@ class _DocumentDropdownState extends State<DocumentDropdown> {
   String? selectedDocument;
   final TextEditingController nameController = TextEditingController();
   final TextEditingController linkController = TextEditingController();
-  List<Map<String, String>> documents = [];
+  List<Map<String, dynamic>> documents = [];
 
   @override
   void initState() {
@@ -375,7 +375,7 @@ class _DocumentDropdownState extends State<DocumentDropdown> {
       Firestoreservice().getDocStream(widget.projectID!).listen((snapshot) {
         setState(() {
           documents = snapshot.docs.map((doc) {
-            var data = doc.data() as Map<String, String>;
+            var data = doc.data() as Map<String, dynamic>;
             return {
               "name": data['docName'] ?? 'Untitled',
               "link": data['docUrl'] ?? 'https://example.com',
@@ -383,6 +383,9 @@ class _DocumentDropdownState extends State<DocumentDropdown> {
           }).toList();
         });
       });
+      if (documents.isEmpty) {
+        print('Documents list is empty');
+      }
     }
   }
 
@@ -415,7 +418,7 @@ class _DocumentDropdownState extends State<DocumentDropdown> {
             ),
             value: selectedDocument,
             isExpanded: true,
-            items: documents.map((Map<String, String> document) {
+            items: documents.map((Map<String, dynamic> document) {
               return DropdownMenuItem<String>(
                 value: document['name'],
                 child: InkWell(
@@ -499,15 +502,21 @@ class _DocumentDropdownState extends State<DocumentDropdown> {
   }
 
   void _addNewDocs() {
-    Firestoreservice().addProjectDocs(
-        widget.projectID!, nameController.text, linkController.text);
     String name = nameController.text.trim();
     String link = linkController.text.trim();
+
     if (name.isNotEmpty && link.isNotEmpty) {
-      setState(() {
-        documents.add({"name": name, "link": link});
+      Firestoreservice()
+          .addProjectDocs(widget.projectID!, name, link)
+          .then((_) {
+        setState(() {
+          documents.add({"name": name, "link": link});
+        });
       });
     }
+
+    nameController.clear();
+    linkController.clear();
     Navigator.of(context).pop();
   }
 }
@@ -539,7 +548,7 @@ class _ProjectStatusWidgetState extends State<ProjectStatusWidget> {
     }
   }
 
-  void _changeStatus() {
+  void changeStatus() {
     Firestoreservice().getProjectOwner(widget.projectID!).then((ownerID) {
       if (ownerID == FirebaseAuth.instance.currentUser?.uid) {
         bool isCompleted = status == 'Completed';
@@ -615,7 +624,7 @@ class _ProjectStatusWidgetState extends State<ProjectStatusWidget> {
             ],
           ),
           ElevatedButton(
-            onPressed: _changeStatus, // Change status on button press
+            onPressed: changeStatus, // Change status on button press
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.deepPurple,
               shape: RoundedRectangleBorder(
@@ -680,7 +689,7 @@ class _ProjectScheduleWidgetState extends State<ProjectScheduleWidget> {
   //bool _isAddingPhase = false;
 
   // Method to add a new schedule phase
-  void _addNewPhase() {
+  void addNewPhase() {
     Firestoreservice().addSchedule(
       widget.projectID!,
       phaseController.text,
@@ -688,12 +697,6 @@ class _ProjectScheduleWidgetState extends State<ProjectScheduleWidget> {
       DateTime.parse(endDateController.text),
     );
 
-    Firestoreservice().addCurrentProjectSchedule(
-      widget.projectID!,
-      phaseController.text,
-      DateTime.parse(startDateController.text),
-      DateTime.parse(endDateController.text),
-    );
     setState(() {
       phases.add({
         "phase": phaseController.text,
@@ -790,7 +793,7 @@ class _ProjectScheduleWidgetState extends State<ProjectScheduleWidget> {
 
           // Button to toggle visibility of input fields
           ElevatedButton(
-            onPressed: _addNewPhase,
+            onPressed: addNewPhase,
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.deepPurple,
               shape: RoundedRectangleBorder(
