@@ -49,18 +49,18 @@ class Firestoreservice {
     });
   }
 
-  Future<void> addCurrentProjectSchedule(String projectId, String phaseName,
-      DateTime startDate, DateTime endDate) {
-    return currentprojects.doc(projectId).collection('schedules').add({
-      'phaseName': phaseName,
-      'startDate': startDate,
-      'endDate': endDate,
-      'createdAt': FieldValue.serverTimestamp(),
-    });
-  }
+  // Future<void> addCurrentProjectSchedule(String projectId, String phaseName,
+  //     DateTime startDate, DateTime endDate) {
+  //   return currentprojects.doc(projectId).collection('schedules').add({
+  //     'phaseName': phaseName,
+  //     'startDate': startDate,
+  //     'endDate': endDate,
+  //     'createdAt': FieldValue.serverTimestamp(),
+  //   });
+  // }
 
   Future<void> addProjectDocs(String projectId, String docName, String docUrl) {
-    return currentprojects.doc(projectId).collection('documents').add({
+    return projx.doc(projectId).collection('documents').add({
       'docName': docName,
       'docUrl': docUrl,
       'createdAt': FieldValue.serverTimestamp(),
