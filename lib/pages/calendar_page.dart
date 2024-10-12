@@ -13,31 +13,52 @@ class CalendarPage extends StatefulWidget {
 class _CalendarPageState extends State<CalendarPage> {
   String? teamID;
   String? projectID;
+  String? projectName;
   List<Map<String, dynamic>> phases = [];
+  bool isLoading = true; // Add a loading state
 
   @override
   void initState() {
     super.initState();
     checkUserTeamStatus();
     checkProjectStatus();
-    if (projectID != null) {
-      Firestoreservice().getScheduleStream(projectID!).listen((snapshot) {
-        setState(() {
-          phases = snapshot.docs.map((doc) {
-            var data = doc.data() as Map<String, dynamic>;
-            return {
-              "phase": data['phaseName'] ?? 'Unknown Phase',
-              "start": data['startDate'] != null
-                  ? data['startDate'].toDate().toString()
-                  : 'No Start Date',
-              "end": data['endDate'] != null
-                  ? data['endDate'].toDate().toString()
-                  : 'No End Date',
-            };
-          }).toList();
-        });
-      });
-    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+          // title: const Text('Calendar Page'),
+          ),
+      body: Center(
+        child: isLoading
+            ? const CircularProgressIndicator() // Show loader if loading
+            : Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: <Widget>[
+                  Text(
+                    'Project Name: $projectName',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  const SizedBox(height: 20),
+                  const SizedBox(height: 20),
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: phases.length,
+                      itemBuilder: (context, index) {
+                        final phase = phases[index];
+                        return ListTile(
+                          title: Text(phase['phaseName']),
+                          subtitle: Text(
+                              'Start: ${phase['startDate']} \nEnd: ${phase['endDate']}'),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+      ),
+    );
   }
 
   Future<void> checkUserTeamStatus() async {
@@ -51,11 +72,6 @@ class _CalendarPageState extends State<CalendarPage> {
 
     if (userTeamSnapshot.docs.isNotEmpty) {
       String teamId = userTeamSnapshot.docs.first['teamId'];
-      DocumentSnapshot teamDoc = await FirebaseFirestore.instance
-          .collection('teams')
-          .doc(teamId)
-          .get();
-
       setState(() {
         teamID = teamId;
       });
@@ -63,8 +79,8 @@ class _CalendarPageState extends State<CalendarPage> {
   }
 
   Future<void> checkProjectStatus() async {
+    await checkUserTeamStatus();
     String userId = FirebaseAuth.instance.currentUser!.uid;
-
     if (teamID != null) {
       QuerySnapshot projectTeamSnapshot = await FirebaseFirestore.instance
           .collection('teams_projects')
@@ -72,134 +88,82 @@ class _CalendarPageState extends State<CalendarPage> {
           .get();
 
       if (projectTeamSnapshot.docs.isNotEmpty) {
-        String projectId = projectTeamSnapshot.docs.first['projectID'];
-        DocumentSnapshot projSnapshot = await FirebaseFirestore.instance
-            .collection('projects')
-            .doc(projectId)
-            .get();
-        setState(() {
-          projectID = projectId;
-        });
-        return;
+        Firestoreservice firestoreService = Firestoreservice();
+        for (var doc in projectTeamSnapshot.docs) {
+          String projectId = doc['projectID'];
+          bool isCompleted =
+              await firestoreService.isProjectCompleted(projectId);
+          if (!isCompleted) {
+            DocumentSnapshot projSnapshot = await FirebaseFirestore.instance
+                .collection('projects')
+                .doc(projectId)
+                .get();
+            if (projSnapshot.exists) {
+              setState(() {
+                projectName = projSnapshot['projectName'];
+                projectID = projectId;
+              });
+              await getBuildPhaseList(); // Fetch phases after setting projectID
+            }
+            setState(() {
+              isLoading = false; // Stop loading
+            });
+            return;
+          }
+        }
       }
     }
 
     // Check if the user is a creator of a team
     QuerySnapshot projSnapshot = await FirebaseFirestore.instance
-        .collection('current_projects')
+        .collection('projects')
         .where('ownerId', isEqualTo: userId)
         .get();
 
     if (projSnapshot.docs.isNotEmpty) {
-      setState(() {
-        projectID = projSnapshot.docs.first.id;
-      });
-      return;
+      Firestoreservice firestoreService = Firestoreservice();
+      for (var doc in projSnapshot.docs) {
+        String projectId = doc.id;
+        bool isCompleted = await firestoreService.isProjectCompleted(projectId);
+        if (!isCompleted) {
+          setState(() {
+            projectName = doc['projectName'];
+            projectID = projectId;
+          });
+          await getBuildPhaseList(); // Fetch phases after setting projectID
+          break; // Exit the loop once an incomplete project is found
+        }
+      }
     }
+
+    setState(() {
+      isLoading = false; // Stop loading
+    });
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: projectID == null
-            ? const Center(
-                child: Text(
-                  'No Project Found',
-                  style: TextStyle(
-                    color: Colors.red,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              )
-            : FutureBuilder<DocumentSnapshot>(
-                future: FirebaseFirestore.instance
-                    .collection('projects')
-                    .doc(projectID)
-                    .get(),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-                  if (!snapshot.hasData || !snapshot.data!.exists) {
-                    return const Center(
-                      child: Text(
-                        'Project not found',
-                        style: TextStyle(
-                          color: Colors.red,
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    );
-                  }
-                  var projectData =
-                      snapshot.data!.data() as Map<String, dynamic>;
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        projectData['projectName'] ?? 'Unknown Project',
-                        style: const TextStyle(
-                          color: Colors.deepPurple,
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      const Text(
-                        'Project Schedule',
-                        style: TextStyle(
-                          color: Colors.deepPurple,
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      // Display each phase in the list or show 'No Phases Found'
-                      // phases.isEmpty
-                      //     ? const Center(
-                      //         child: Text(
-                      //           'No Phases Found',
-                      //           style: TextStyle(
-                      //             color: Colors.red,
-                      //             fontSize: 20,
-                      //             fontWeight: FontWeight.bold,
-                      //           ),
-                      //         ),
-                      //       )
-                      Column(
-                        children: phases.map((phase) {
-                          return Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 8.0),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  phase['phase']!,
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.deepPurple,
-                                  ),
-                                ),
-                                const SizedBox(height: 5),
-                                Text('Start Date: ${phase['start']}'),
-                                Text('End Date: ${phase['end']}'),
-                              ],
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                      const SizedBox(height: 20),
-                      // Input fields to add a new phase
-                    ],
-                  );
-                },
-              ),
-      ),
-    );
+  Future<void> getBuildPhaseList() async {
+    if (projectID != null) {
+      Firestoreservice firestoreService = Firestoreservice();
+      QuerySnapshot scheduleSnapshot =
+          await firestoreService.getScheduleStream(projectID!).first;
+
+      List<Map<String, dynamic>> fetchedPhases =
+          scheduleSnapshot.docs.map((doc) {
+        return {
+          'phaseName': doc['phaseName'],
+          'startDate': (doc['startDate'] as Timestamp).toDate(),
+          'endDate': (doc['endDate'] as Timestamp).toDate(),
+        };
+      }).toList();
+
+      if (mounted) {
+        setState(() {
+          phases = fetchedPhases;
+        });
+      }
+    }
+    setState(() {
+      isLoading = true; // Start loading
+    });
   }
 }

@@ -15,12 +15,43 @@ class _TasksPageState extends State<TasksPage> {
   final Firestoreservice firestoreservice = Firestoreservice();
   final user = FirebaseAuth.instance.currentUser;
   final userid = FirebaseAuth.instance.currentUser!.uid;
+  List<Task> incompleteTasks = [];
+  List<Task> completeTasks = [];
 
-  // final List<Task> tasks = [
-  //   Task(name: 'Complete the project'),
-  //   Task(name: 'Review the code'),
-  //   Task(name: 'Submit the report'),
-  // ];
+  @override
+  void initState() {
+    super.initState();
+    buildTaskLists();
+  }
+
+  Future<void> buildTaskLists() async {
+    QuerySnapshot taskSnapshot =
+        await firestoreservice.getTaskStream(userid).first;
+    List<Task> fetchedIncompleteTasks = [];
+    List<Task> fetchedCompleteTasks = [];
+
+    for (var doc in taskSnapshot.docs) {
+      Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+      String taskId = doc.id;
+      String taskName = data['task'];
+      bool isCompleted = data['done'];
+
+      Task task = Task(id: taskId, name: taskName, isCompleted: isCompleted);
+
+      if (isCompleted) {
+        fetchedCompleteTasks.add(task);
+      } else {
+        fetchedIncompleteTasks.add(task);
+      }
+    }
+
+    if (mounted) {
+      setState(() {
+        incompleteTasks = fetchedIncompleteTasks;
+        completeTasks = fetchedCompleteTasks;
+      });
+    }
+  }
 
   void openTaskDialog({String? docID}) {
     showDialog(
@@ -39,6 +70,7 @@ class _TasksPageState extends State<TasksPage> {
                       }
                       textController.clear();
                       Navigator.pop(context);
+                      buildTaskLists(); // Refresh the task lists
                     },
                     child: const Text("Add"))
               ],
@@ -48,66 +80,64 @@ class _TasksPageState extends State<TasksPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(
+        title: const Text('Tasks'),
+      ),
       floatingActionButton: FloatingActionButton(
         onPressed: openTaskDialog,
         backgroundColor: Colors.deepPurple[300],
         child: const Icon(Icons.add),
       ),
-      body: StreamBuilder<QuerySnapshot>(
-          stream: firestoreservice.getTaskStream(userid),
-          builder: (context, snapshot) {
-            if (snapshot.hasData) {
-              List tasksList = snapshot.data!.docs;
-
-              return ListView.builder(
-                  itemCount: tasksList.length,
-                  itemBuilder: (context, index) {
-                    DocumentSnapshot doc = tasksList[index];
-                    //String docID = doc.id;
-
-                    Map<String, dynamic> data =
-                        doc.data() as Map<String, dynamic>;
-                    String taskName = data['task'];
-                    bool isCompleted = data['done'];
-
-                    Task task = Task(name: taskName, isCompleted: isCompleted);
-
-                    return TaskTile(
-                      task: task,
-                      onChanged: (bool? value) {
-                        setState(() {
-                          task.isCompleted = value ?? false;
-                        });
-                        // firestoreservice.updateTask(docID, task);
-                      },
-                    );
-                  });
-            } else {
-              return const Text("No data");
-            }
-          }),
+      body: ListView.builder(
+        itemCount: incompleteTasks.length + completeTasks.length,
+        itemBuilder: (context, index) {
+          if (index < incompleteTasks.length) {
+            Task task = incompleteTasks[index];
+            return TaskTile(
+              task: task,
+              onChanged: (bool? value) {
+                setState(() {
+                  task.isCompleted = value ?? false;
+                });
+                firestoreservice.updateTaskStatus(
+                    userid, task.id, task.isCompleted);
+                buildTaskLists(); // Refresh the task lists
+              },
+            );
+          } else {
+            Task task = completeTasks[index - incompleteTasks.length];
+            return TaskTile(
+              task: task,
+              onChanged: (bool? value) {
+                setState(() {
+                  task.isCompleted = value ?? false;
+                });
+                firestoreservice.updateTaskStatus(
+                    userid, task.id, task.isCompleted);
+                buildTaskLists(); // Refresh the task lists
+              },
+            );
+          }
+        },
+      ),
     );
   }
 }
 
 class Task {
-  Task({required this.name, this.isCompleted = false});
+  Task({required this.id, required this.name, required this.isCompleted});
 
+  final String id;
   final String name;
   bool isCompleted;
 }
 
-class TaskTile extends StatefulWidget {
+class TaskTile extends StatelessWidget {
   const TaskTile({super.key, required this.task, required this.onChanged});
 
   final Task task;
   final ValueChanged<bool?> onChanged;
 
-  @override
-  _TaskTileState createState() => _TaskTileState();
-}
-
-class _TaskTileState extends State<TaskTile> {
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -118,15 +148,10 @@ class _TaskTileState extends State<TaskTile> {
         borderRadius: BorderRadius.circular(8.0),
       ),
       child: ListTile(
-        title: Text(widget.task.name),
+        title: Text(task.name),
         trailing: Checkbox(
-          value: widget.task.isCompleted,
-          onChanged: (bool? value) {
-            setState(() {
-              widget.task.isCompleted = value ?? false;
-            });
-            widget.onChanged(value);
-          },
+          value: task.isCompleted,
+          onChanged: onChanged,
         ),
       ),
     );
