@@ -120,4 +120,8 @@ class Firestoreservice {
       'done': isCompleted,
     });
   }
+
+  Future<void> deleteTask(String userId, String taskId) {
+    return tasks(userId).doc(taskId).delete();
+  }
 }
