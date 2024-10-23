@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:projxpert/pages/login_page.dart';
 
 class StartPage extends StatelessWidget {
   const StartPage({super.key});

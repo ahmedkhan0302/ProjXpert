@@ -131,19 +131,19 @@ class Firestoreservice {
 
   Stream<QuerySnapshot<Object?>> getTeamMembersStream(String? teamID) {
     // Reference to the 'user_teams' collection where we store the relationship between users and teams
-    final CollectionReference userTeams =
-        FirebaseFirestore.instance.collection('user_teams');
-
-    // Query the 'user_teams' collection to find all users associated with the given teamID
-    return userTeams
-        .where('teamID', isEqualTo: teamID)
+    return FirebaseFirestore.instance
+        .collection('user_teams')
+        .where('teamId', isEqualTo: teamID)
         .snapshots()
-        .asyncExpand((userTeamsSnapshot) async* {
+        .asyncExpand((teamUsersSnapshot) async* {
       List<String> userIds =
-          userTeamsSnapshot.docs.map((doc) => doc['userID'] as String).toList();
+          teamUsersSnapshot.docs.map((doc) => doc['userId'] as String).toList();
 
       if (userIds.isNotEmpty) {
-        yield* users.where(FieldPath.documentId, whereIn: userIds).snapshots();
+        yield* FirebaseFirestore.instance
+            .collection('users')
+            .where(FieldPath.documentId, whereIn: userIds)
+            .snapshots();
       } else {
         yield* const Stream<QuerySnapshot>.empty();
       }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:projxpert/pages/profile_page.dart';
 import 'package:projxpert/pages/project_details_app.dart';
 import 'package:projxpert/pages/project_view_page.dart';
 import 'package:projxpert/services/firestore.dart';
@@ -70,6 +71,14 @@ class _TeamDetailsPageState extends State<TeamDetailsPage> {
     }
   }
 
+  void _navigateToProfile(String id) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => ProfilePage(userID: id),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -130,33 +139,62 @@ class _TeamDetailsPageState extends State<TeamDetailsPage> {
                 ),
               ),
               const SizedBox(height: 10),
-              StreamBuilder<QuerySnapshot>(
-                stream: membersStream,
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
-                  } else if (snapshot.hasError) {
-                    return const Center(child: Text('Error loading members'));
-                  } else {
-                    List<DocumentSnapshot> members = snapshot.data!.docs;
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: members.map((member) {
-                        var data = member.data() as Map<String, dynamic>;
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 4.0),
-                          child: Text(
-                            data['userName'] ?? 'Unknown Member',
-                            style: const TextStyle(
-                              fontSize: 16,
-                              color: Colors.black87,
+              Container(
+                padding: const EdgeInsets.all(10.0),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(10.0),
+                ),
+                child: StreamBuilder<QuerySnapshot>(
+                  stream: membersStream,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator());
+                    } else if (snapshot.hasError) {
+                      return const Center(child: Text('Error loading members'));
+                    } else if (!snapshot.hasData ||
+                        snapshot.data!.docs.isEmpty) {
+                      return const Center(child: Text('No members found'));
+                    } else {
+                      List<DocumentSnapshot> members = snapshot.data!.docs;
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: members.map((member) {
+                          var data = member.data() as Map<String, dynamic>;
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 5.0),
+                            child: GestureDetector(
+                              onTap: () => _navigateToProfile(member.id),
+                              child: Container(
+                                height: 50,
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 8.0),
+                                decoration: BoxDecoration(
+                                  color: Colors.deepPurple[50],
+                                  borderRadius: BorderRadius.circular(5.0),
+                                ),
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.person,
+                                        color: Colors.deepPurple),
+                                    const SizedBox(width: 10),
+                                    Text(
+                                      data['username'] ?? 'Unknown Member',
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        color: Colors.deepPurple,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
                             ),
-                          ),
-                        );
-                      }).toList(),
-                    );
-                  }
-                },
+                          );
+                        }).toList(),
+                      );
+                    }
+                  },
+                ),
               ),
               const SizedBox(height: 30),
               const Text(
@@ -168,37 +206,59 @@ class _TeamDetailsPageState extends State<TeamDetailsPage> {
                 ),
               ),
               const SizedBox(height: 10),
-              StreamBuilder<QuerySnapshot>(
-                stream: projectsStream,
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
-                  } else if (snapshot.hasError) {
-                    return const Center(child: Text('Error loading projects'));
-                  } else {
-                    List<DocumentSnapshot> projects = snapshot.data!.docs;
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: projects.map((project) {
-                        var data = project.data() as Map<String, dynamic>;
-                        return GestureDetector(
-                          onTap: () => navigateToProj(project.id),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 4.0),
-                            child: Text(
-                              data['projectName'] ?? 'Unknown Project',
-                              style: const TextStyle(
-                                fontSize: 16,
-                                color: Colors.blue,
-                                decoration: TextDecoration.underline,
+              Container(
+                constraints: const BoxConstraints(
+                  minHeight: 100, // Minimum height
+                  // maxHeight: 200, // Maximum height
+                  minWidth: double.infinity, // Minimum width (full width)
+                ),
+                padding: const EdgeInsets.all(10.0),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(10.0),
+                ),
+                child: StreamBuilder<QuerySnapshot>(
+                  stream: projectsStream,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator());
+                    } else if (snapshot.hasError) {
+                      return const Center(
+                          child: Text('Error loading projects'));
+                    } else {
+                      List<DocumentSnapshot> projects = snapshot.data!.docs;
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: projects.map((project) {
+                          var data = project.data() as Map<String, dynamic>;
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 5.0),
+                            child: GestureDetector(
+                              onTap: () => navigateToProj(project.id),
+                              child: Container(
+                                height: 50,
+                                width: double.infinity,
+                                padding: const EdgeInsets.symmetric(
+                                    vertical: 8.0, horizontal: 10.0),
+                                decoration: BoxDecoration(
+                                  color: Colors.deepPurple[50],
+                                  borderRadius: BorderRadius.circular(5.0),
+                                ),
+                                child: Text(
+                                  data['projectName'] ?? 'Unknown Project',
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    color: Colors.deepPurple,
+                                  ),
+                                ),
                               ),
                             ),
-                          ),
-                        );
-                      }).toList(),
-                    );
-                  }
-                },
+                          );
+                        }).toList(),
+                      );
+                    }
+                  },
+                ),
               ),
             ],
           ),

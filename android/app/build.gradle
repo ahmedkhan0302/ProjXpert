@@ -6,6 +6,8 @@ plugins {
     id "kotlin-android"
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id "dev.flutter.flutter-gradle-plugin"
+
+    
 }
 
 def localProperties = new Properties()
@@ -31,7 +33,7 @@ android {
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
-    compileSdkVersion 31 // Update to at least 31
+    compileSdkVersion 34 // Update to at least 31
 
     defaultConfig {
         applicationId "com.example.yourapp"
@@ -52,10 +54,14 @@ android {
         // You can update the following values to match your application needs.
         // For more information, see: https://docs.flutter.dev/deployment/android#reviewing-the-gradle-build-configuration.
         minSdkVersion 23
-        targetSdkVersion 29
+        targetSdkVersion 31
         versionCode = flutterVersionCode.toInteger()
         versionName = flutterVersionName
     }
+
+    lint {
+          baseline = file("lint-baseline.xml")
+      }
 
     buildTypes {
         release {
@@ -65,7 +71,10 @@ android {
         }
     }
 }
+dependencies {
+    implementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
 
+}
 flutter {
     source = "../.."
 }
