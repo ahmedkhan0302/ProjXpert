@@ -1,6 +1,8 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:projxpert/pages/project_details_app.dart';
+import 'package:projxpert/pages/project_view_page.dart';
 import 'package:projxpert/services/firestore.dart';
 
 class InspirePage extends StatefulWidget {
@@ -55,6 +57,31 @@ class _InspirePageState extends State<InspirePage> {
     );
   }
 
+  void navigateToProjectViews(projectID) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => ProjectViewPage(projectID: projectID),
+      ),
+    );
+  }
+
+  Future<void> navigateToProj(projectID) async {
+    String userId = FirebaseAuth.instance.currentUser!.uid;
+
+    DocumentSnapshot projSnapshot = await FirebaseFirestore.instance
+        .collection('projects')
+        .doc(projectID)
+        .get();
+
+    String creatorId = projSnapshot['ownerId'];
+
+    if (userId == creatorId) {
+      navigateToProjectDetails(projectID);
+    } else {
+      navigateToProjectViews(projectID);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -99,7 +126,7 @@ class _InspirePageState extends State<InspirePage> {
                             String pName = data['projectName'];
 
                             return GestureDetector(
-                              onTap: () => navigateToProjectDetails(doc.id),
+                              onTap: () => navigateToProj(doc.id),
                               child: ProjectTile(
                                 projectName: pName,
                               ),

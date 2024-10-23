@@ -31,6 +31,16 @@ android {
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
+    compileSdkVersion 31 // Update to at least 31
+
+    defaultConfig {
+        applicationId "com.example.yourapp"
+        minSdkVersion 21
+        targetSdkVersion 31 // Update to at least 31
+        versionCode 1
+        versionName "1.0"
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_1_8
         targetCompatibility = JavaVersion.VERSION_1_8
@@ -59,5 +69,3 @@ android {
 flutter {
     source = "../.."
 }
-
-

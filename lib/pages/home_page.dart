@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:projxpert/pages/team_details_page.dart';
 import 'package:projxpert/pages/project_details_app.dart';
 import 'package:projxpert/services/firestore.dart';
 
@@ -393,137 +394,185 @@ class _HomePageState extends State<HomePage> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Container(
-                          width: containerWidth,
-                          padding: const EdgeInsets.all(16.0),
-                          decoration: BoxDecoration(
-                            border: Border.all(color: Colors.black),
-                            borderRadius: BorderRadius.circular(8.0),
-                          ),
-                          child: Column(
-                            children: [
-                              if (teamName != null && teamCode != null) ...[
-                                Text('Team Name: $teamName'),
-                                const SizedBox(height: 8.0),
-                                Text('Team Code: $teamCode'),
-                                const SizedBox(height: 8.0),
-                                ElevatedButton(
-                                  onPressed: leaveTeam,
-                                  child: const Text('Leave Team'),
-                                ),
-                              ] else ...[
-                                const Text('Team'),
-                                const SizedBox(height: 8.0),
-                                ElevatedButton(
-                                  onPressed: () {
-                                    showDialog(
-                                      context: context,
-                                      builder: (context) {
-                                        return AlertDialog(
-                                          title: const Text('Create Team'),
-                                          content: TextField(
-                                            controller: teamNameController,
-                                            decoration: const InputDecoration(
-                                                hintText: 'Enter team name'),
-                                          ),
-                                          actions: [
-                                            TextButton(
-                                              onPressed: createTeam,
-                                              child: const Text('Create'),
-                                            ),
-                                          ],
-                                        );
-                                      },
-                                    );
-                                  },
-                                  child: const Text('Create'),
-                                ),
-                                const SizedBox(height: 8.0),
-                                ElevatedButton(
-                                  onPressed: () {
-                                    showDialog(
-                                      context: context,
-                                      builder: (context) {
-                                        return AlertDialog(
-                                          title: const Text('Join Team'),
-                                          content: TextField(
-                                            controller: teamCodeController,
-                                            decoration: const InputDecoration(
-                                                hintText: 'Enter team code'),
-                                          ),
-                                          actions: [
-                                            TextButton(
-                                              onPressed: joinTeam,
-                                              child: const Text('Join'),
-                                            ),
-                                          ],
-                                        );
-                                      },
-                                    );
-                                  },
-                                  child: const Text('Join'),
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
+                        _buildTeamSection(containerWidth),
                         const SizedBox(height: 16.0),
-                        GestureDetector(
-                          onTap: projectName != null
-                              ? navigateToProjectDetails
-                              : null,
-                          child: Container(
-                            width: containerWidth,
-                            padding: const EdgeInsets.all(16.0),
-                            decoration: BoxDecoration(
-                              border: Border.all(color: Colors.black),
-                              borderRadius: BorderRadius.circular(8.0),
-                            ),
-                            child: Column(children: [
-                              if (projectName != null) ...[
-                                Text('Project Name: $projectName'),
-                                const SizedBox(height: 8.0),
-                                ElevatedButton(
-                                  onPressed: deleteProject,
-                                  child: const Text('End Project'),
-                                ),
-                              ] else ...[
-                                const Text('Project'),
-                                const SizedBox(height: 8.0),
-                                ElevatedButton(
-                                  onPressed: () {
-                                    showDialog(
-                                      context: context,
-                                      builder: (context) {
-                                        return AlertDialog(
-                                          title: const Text('Create Project'),
-                                          content: TextField(
-                                            controller: projectNameController,
-                                            decoration: const InputDecoration(
-                                                hintText: 'Enter project name'),
-                                          ),
-                                          actions: [
-                                            TextButton(
-                                              onPressed: createProject,
-                                              child: const Text('Create'),
-                                            ),
-                                          ],
-                                        );
-                                      },
-                                    );
-                                  },
-                                  child: const Text('Add Project'),
-                                ),
-                              ],
-                            ]),
-                          ),
-                        ),
+                        _buildProjectSection(containerWidth),
                       ],
                     ),
                   );
                 },
               ),
             ),
+    );
+  }
+
+  Widget _buildTeamSection(double containerWidth) {
+    return GestureDetector(
+      onTap: () {
+        // Navigate to the Team Details page
+        if (teamName != null && teamCode != null) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => TeamDetailsPage(
+                teamID: teamID,
+              ),
+            ),
+          );
+        }
+      },
+      child: Container(
+        width: containerWidth,
+        padding: const EdgeInsets.all(16.0),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border.all(color: Colors.grey.shade300),
+          borderRadius: BorderRadius.circular(12.0),
+          boxShadow: const [
+            BoxShadow(
+              color: Colors.black12,
+              blurRadius: 8.0,
+              offset: Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            if (teamName != null && teamCode != null) ...[
+              Text(
+                'Team Name: $teamName',
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.purple, // Set color to purple
+                ),
+              ),
+              const SizedBox(height: 8.0),
+              Text('Team Code: $teamCode',
+                  style: const TextStyle(color: Colors.grey)),
+              const SizedBox(height: 8.0),
+              ElevatedButton(
+                onPressed: leaveTeam,
+                child: const Text('Leave Team'),
+              ),
+            ] else ...[
+              const Text('Team', style: TextStyle(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8.0),
+              _buildTeamButton(
+                  'Create',
+                  () => _showTeamDialog(
+                      'Create Team', teamNameController, createTeam)),
+              const SizedBox(height: 8.0),
+              _buildTeamButton(
+                  'Join',
+                  () => _showTeamDialog(
+                      'Join Team', teamCodeController, joinTeam)),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTeamButton(String label, VoidCallback onPressed) {
+    return ElevatedButton(
+      onPressed: onPressed,
+      style: ElevatedButton.styleFrom(
+        backgroundColor:
+            Colors.blueAccent, // Changed from primary to backgroundColor
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8.0),
+        ),
+      ),
+      child: Text(label),
+    );
+  }
+
+  void _showTeamDialog(
+      String title, TextEditingController controller, VoidCallback onPressed) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text(title),
+          content: TextField(
+            controller: controller,
+            decoration:
+                const InputDecoration(hintText: 'Enter team name or code'),
+          ),
+          actions: [
+            TextButton(
+              onPressed: onPressed,
+              child: const Text('Submit'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildProjectSection(double containerWidth) {
+    return GestureDetector(
+      onTap: projectName != null ? navigateToProjectDetails : null,
+      child: Container(
+        width: containerWidth,
+        padding: const EdgeInsets.all(16.0),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border.all(color: Colors.grey.shade300),
+          borderRadius: BorderRadius.circular(12.0),
+          boxShadow: const [
+            BoxShadow(
+              color: Colors.black12,
+              blurRadius: 8.0,
+              offset: Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            if (projectName != null) ...[
+              Text(
+                'Project Name: $projectName',
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.purple, // Set color to purple
+                ),
+              ),
+              const SizedBox(height: 8.0),
+              ElevatedButton(
+                onPressed: deleteProject,
+                child: const Text('End Project'),
+              ),
+            ] else ...[
+              const Text('Project',
+                  style: TextStyle(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8.0),
+              _buildTeamButton('Add Project', () => _showProjectDialog()),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showProjectDialog() {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Create Project'),
+          content: TextField(
+            controller: projectNameController,
+            decoration: const InputDecoration(hintText: 'Enter project name'),
+          ),
+          actions: [
+            TextButton(
+              onPressed: createProject,
+              child: const Text('Create'),
+            ),
+          ],
+        );
+      },
     );
   }
 }

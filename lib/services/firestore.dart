@@ -124,4 +124,50 @@ class Firestoreservice {
   Future<void> deleteTask(String userId, String taskId) {
     return tasks(userId).doc(taskId).delete();
   }
+
+  Future<DocumentSnapshot<Object?>> getTeamById(String? teamID) {
+    return FirebaseFirestore.instance.collection('teams').doc(teamID).get();
+  }
+
+  Stream<QuerySnapshot<Object?>> getTeamMembersStream(String? teamID) {
+    // Reference to the 'user_teams' collection where we store the relationship between users and teams
+    final CollectionReference userTeams =
+        FirebaseFirestore.instance.collection('user_teams');
+
+    // Query the 'user_teams' collection to find all users associated with the given teamID
+    return userTeams
+        .where('teamID', isEqualTo: teamID)
+        .snapshots()
+        .asyncExpand((userTeamsSnapshot) async* {
+      List<String> userIds =
+          userTeamsSnapshot.docs.map((doc) => doc['userID'] as String).toList();
+
+      if (userIds.isNotEmpty) {
+        yield* users.where(FieldPath.documentId, whereIn: userIds).snapshots();
+      } else {
+        yield* const Stream<QuerySnapshot>.empty();
+      }
+    });
+  }
+
+  Stream<QuerySnapshot<Object?>> getTeamProjectsStream(String? teamID) {
+    return FirebaseFirestore.instance
+        .collection('teams_projects')
+        .where('teamID', isEqualTo: teamID)
+        .snapshots()
+        .asyncExpand((teamProjectsSnapshot) async* {
+      List<String> projectIds = teamProjectsSnapshot.docs
+          .map((doc) => doc['projectID'] as String)
+          .toList();
+
+      if (projectIds.isNotEmpty) {
+        yield* FirebaseFirestore.instance
+            .collection('projects')
+            .where(FieldPath.documentId, whereIn: projectIds)
+            .snapshots();
+      } else {
+        yield* const Stream<QuerySnapshot>.empty();
+      }
+    });
+  }
 }
